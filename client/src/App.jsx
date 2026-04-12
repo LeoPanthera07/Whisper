@@ -1,46 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import Onboarding from './components/Onboarding';
+import ChatRoom from './components/ChatRoom';
 
-// Connect to the same host + port that served this frontend
-// socket.io-client gracefully handles this automatically if left blank
 const socket = io();
 
-function App() {
-  const [status, setStatus] = useState('Connecting to Host...');
+export default function App() {
+  const [isJoined, setIsJoined] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  useEffect(() => {
-    socket.on('connect', () => {
-      setStatus(`Connected to server. Socket ID: ${socket.id}`);
-      // Send a test ping back to the server to verify bi-directional messaging
-      socket.emit('ping');
-    });
-
-    socket.on('pong', (data) => {
-      setStatus(`Connected! Server says: ${data.message}`);
-    });
-
-    socket.on('disconnect', () => {
-      setStatus('Disconnected from server.');
-    });
-
-    return () => {
-      socket.off('connect');
-      socket.off('pong');
-      socket.off('disconnect');
-    };
-  }, []);
+  const handleJoin = (userData) => {
+    setCurrentUser(userData);
+    setIsJoined(true);
+    socket.emit('join_room', userData);
+  };
 
   return (
-    <div className="container">
-      <h1>Offline Chat - Sprint 1 Phase</h1>
-      <div className={`status-badge ${status.includes('Connected!') ? 'connected' : 'disconnected'}`}>
-        {status}
-      </div>
-      <p className="subtitle">
-        This page was natively served over the LAN/Hotspot. No internet required!
-      </p>
+    <div className="relative min-h-screen overflow-hidden dark:bg-slate-900 bg-gray-50 text-gray-900 dark:text-gray-100 transition-colors duration-300 font-sans">
+      {/* Abstract Background Blobs for Glassmorphism Accent */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 dark:bg-blue-600/20 blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '8s' }}></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-purple-500/20 dark:bg-purple-600/20 blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '12s' }}></div>
+      
+      {isJoined ? (
+        <ChatRoom socket={socket} currentUser={currentUser} />
+      ) : (
+        <Onboarding onJoin={handleJoin} />
+      )}
     </div>
   );
 }
-
-export default App;
