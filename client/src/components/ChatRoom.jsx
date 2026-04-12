@@ -11,7 +11,7 @@ import {
 } from '../utils/CryptoEngine';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ChatRoom({ socket, currentUser, myKeys }) {
+export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, toggleTheme }) {
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem(`whisper_chat_history`);
@@ -22,12 +22,13 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
   });
   const [inputText, setInputText] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [typingUsers, setTypingUsers] = useState(new Set());
   
   const [cryptoStatus, setCryptoStatus] = useState('Waiting for Secure Connection...');
   const roomKeyRef = useRef(null);
   const isMasterRef = useRef(false);
   const onlineUsersRef = useRef([]);
+  const typingTimeoutRef = useRef(null);
 
   const messagesEndRef = useRef(null);
 
@@ -36,10 +37,7 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
     onlineUsersRef.current = onlineUsers;
   }, [onlineUsers]);
 
-  useEffect(() => {
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [isDarkMode]);
+  // isDarkMode effect moved to App.jsx
 
   useEffect(() => {
     localStorage.setItem(`whisper_chat_history`, JSON.stringify(messages));
@@ -50,9 +48,23 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
     // 1. Send join_room immediately upon mounting so we don't miss room_state
     socket.emit('join_room', currentUser);
 
-    socket.on('room_state', async (users) => {
-      setOnlineUsers(users);
-      const me = users.find(u => u.socketId === socket.id);
+    socket.on('room_state', async (payload) => {
+      // payload supports either array (old) or object (new) for transition safety
+      const usersList = Array.isArray(payload) ? payload : payload.users;
+      const roomId = Array.isArray(payload) ? null : payload.roomId;
+
+      setOnlineUsers(usersList);
+
+      if (roomId) {
+        const savedRoomId = localStorage.getItem('whisper_room_id');
+        if (savedRoomId !== roomId) {
+          setMessages([]);
+          localStorage.setItem('whisper_room_id', roomId);
+          localStorage.removeItem('whisper_chat_history');
+        }
+      }
+
+      const me = usersList.find(u => u.socketId === socket.id);
       if (me && me.isMaster && !roomKeyRef.current) {
         isMasterRef.current = true;
         setCryptoStatus('Key Master: Generating Symmetric Room Key...');
@@ -69,7 +81,16 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
          return [...prev, user];
       });
 
-      if (isMasterRef.current && roomKeyRef.current) {
+      if (isMasterRef.current) {
+         // Wait up to 2 seconds for RoomKey to finish generating if race condition occurred
+         let attempts = 0;
+         while (!roomKeyRef.current && attempts < 20) {
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+         }
+         
+         if (!roomKeyRef.current) return;
+
         try {
           const peerPublicKey = await importPublicKey(user.publicKey);
           const sharedSecret = await deriveSharedKey(myKeys.privateKey, peerPublicKey);
@@ -107,14 +128,23 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
         roomKeyRef.current = symmetricRoomKey;
         setCryptoStatus('E2EE Secured (Peer)');
       } catch (err) {
-        console.error(err);
-        setCryptoStatus('E2EE Keys Error');
+        console.error("Crypto Handshake failed, requesting key heal...", err);
+        setCryptoStatus('E2EE Keys Error - Retrying...');
+        // Auto-heal by politely asking the Master for a fresh key relay
+        let master = onlineUsersRef.current.find(u => u.isMaster);
+        if (master) {
+           setTimeout(() => socket.emit('request_room_key', master.socketId), 1000);
+        }
       }
     });
 
-    socket.on('assign_master', () => {
+    socket.on('assign_master', async () => {
       isMasterRef.current = true;
       if (roomKeyRef.current) {
+        setCryptoStatus('E2EE Secured (Master)');
+      } else {
+        setCryptoStatus('Key Master: Generating Symmetric... ');
+        roomKeyRef.current = await generateRoomKey();
         setCryptoStatus('E2EE Secured (Master)');
       }
     });
@@ -141,6 +171,15 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
       setMessages(prev => [...prev, decryptedMsg]);
     });
 
+    socket.on('user_typing', ({ username, isTyping }) => {
+      setTypingUsers(prev => {
+        const next = new Set(prev);
+        if (isTyping) next.add(username);
+        else next.delete(username);
+        return next;
+      });
+    });
+
     return () => {
       socket.off('room_state');
       socket.off('user_joined');
@@ -148,6 +187,7 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
       socket.off('assign_master');
       socket.off('user_left');
       socket.off('chat_message');
+      socket.off('user_typing');
     };
   }, [socket, myKeys.privateKey]);
 
@@ -155,6 +195,9 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
     e.preventDefault();
     if (!inputText.trim() || !roomKeyRef.current) return;
     
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    socket.emit('typing', false);
+
     const textToSend = inputText.trim();
     setInputText('');
     
@@ -174,7 +217,19 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
     }
   };
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+  const handleInputChange = (e) => {
+    setInputText(e.target.value);
+    if (!roomKeyRef.current) return;
+
+    socket.emit('typing', true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing', false);
+    }, 1500);
+  };
+
+  // toggleTheme passed from props!
 
   const formatTime = (ts) => {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -184,13 +239,18 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
   const isSecure = cryptoStatus.includes('E2EE Secured');
 
   return (
-    <div className="flex flex-col h-screen w-full relative z-10 font-sans">
+    <motion.div 
+       initial={{ opacity: 0 }} 
+       animate={{ opacity: 1 }} 
+       className="fixed inset-0 flex flex-col w-[100dvw] h-[100dvh] z-[999] bg-gray-50 dark:bg-slate-900 border-none m-0 p-0 font-sans"
+    >
       {/* Header */}
-      <header className="glass-panel backdrop-blur-xl px-4 sm:px-8 py-4 flex items-center justify-between border-b border-gray-200/50 dark:border-white/10 z-20 sticky top-0 shadow-sm">
+      <header className="h-20 w-full px-4 sm:px-8 flex items-center justify-between border-b border-gray-200/50 dark:border-white/10 shadow-sm flex-shrink-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <motion.div 
             whileHover={{ scale: 1.1 }}
-            className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500 bg-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+            className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-white shadow-[0_0_15px_rgba(16,185,129,0.3)] flex-shrink-0 flex justify-center items-center [&>svg]:w-full [&>svg]:h-full"
+            style={{ clipPath: 'circle(50% at 50% 50%)' }}
             dangerouslySetInnerHTML={{ __html: currentUser.avatarSvg }} 
           />
           <div>
@@ -218,7 +278,7 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
       </header>
 
       {/* Main Chat Area */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 scrollbar-hide">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-hide z-10 relative">
         {/* System Messages */}
         <AnimatePresence>
           {!isSecure && (
@@ -247,10 +307,11 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
               key={msg.id} 
               className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`flex gap-3 max-w-[85%] md:max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex gap-3 max-w-[85%] md:max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end`}>
                 {/* Avatar */}
                 <div 
-                  className="w-10 h-10 rounded-full flex-shrink-0 border border-black/10 dark:border-white/10 bg-white shadow-sm"
+                  className="w-10 h-10 rounded-full flex-shrink-0 border border-black/10 dark:border-white/10 bg-white shadow-sm flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+                  style={{ clipPath: 'circle(50% at 50% 50%)' }}
                   dangerouslySetInnerHTML={{ __html: msg.avatarSvg }}
                 />
                 
@@ -272,16 +333,35 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
             </motion.div>
           );
         })}
+
+        <AnimatePresence>
+          {typingUsers.size > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-2 text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-2"
+            >
+              <div className="flex gap-1 items-center bg-gray-200 dark:bg-slate-800/80 px-3 py-2 rounded-full shadow-sm border border-gray-300 dark:border-white/5">
+                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></span>
+              </div>
+              {Array.from(typingUsers).join(', ')} typing...
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div ref={messagesEndRef} className="h-6" />
       </main>
 
       {/* Input Area */}
-      <footer className="p-4 sm:p-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 z-20">
-        <form onSubmit={handleSend} className="max-w-5xl mx-auto relative flex items-center group">
+      <footer className="h-20 w-full px-4 sm:px-6 flex items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-gray-200 dark:border-white/10 flex-shrink-0 z-30">
+        <form onSubmit={handleSend} className="w-full max-w-5xl mx-auto relative flex items-center group">
           <input
             type="text"
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={handleInputChange}
             disabled={!isSecure}
             placeholder={isSecure ? "Type your encrypted message..." : "Establishing Secure Handshake..."}
             className="w-full glass-input backdrop-blur-2xl bg-white/70 dark:bg-black/40 border border-gray-200 dark:border-gray-700/50 rounded-full px-6 py-4 pr-16 dark:text-white text-gray-900 placeholder-gray-500 dark:placeholder-gray-400 transition-all font-medium focus:ring-2 focus:ring-indigo-500/50 shadow-inner"
@@ -312,6 +392,6 @@ export default function ChatRoom({ socket, currentUser, myKeys }) {
           </AnimatePresence>
         </form>
       </footer>
-    </div>
+    </motion.div>
   );
 }

@@ -15,13 +15,19 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'client/dist/index.
 
 // Map: socket.id -> { username, avatarSvg, publicKey, isMaster }
 const users = new Map();
+let currentRoomId = Date.now().toString();
 
 io.on('connection', (socket) => {
   console.log(`[+] Socket connected: ${socket.id}`);
 
   // Step 1: User joins and shares their Public Key
   socket.on('join_room', (userData) => {
-    const isFirstUser = users.size === 0;
+    const existingUser = users.get(socket.id);
+    const isFirstUser = existingUser ? existingUser.isMaster : (users.size === 0);
+    
+    if (!existingUser && isFirstUser) {
+      currentRoomId = Date.now().toString() + Math.random().toString(36).substring(7);
+    }
     
     users.set(socket.id, {
       socketId: socket.id,
@@ -34,7 +40,10 @@ io.on('connection', (socket) => {
     console.log(`[LOBBY] ${userData.username} joined. Master: ${isFirstUser}`);
 
     // Tell the user their own state & who else is here
-    socket.emit('room_state', Array.from(users.values()));
+    socket.emit('room_state', { 
+      users: Array.from(users.values()), 
+      roomId: currentRoomId 
+    });
 
     // Tell others (specifically the Key Master) that a new user appeared
     socket.broadcast.emit('user_joined', {
@@ -47,10 +56,16 @@ io.on('connection', (socket) => {
 
   // Step 2: The Key Master sends the encrypted Symmetric Room Key payload to the New User
   socket.on('send_room_key', ({ targetSocketId, encryptedRoomKeyPayload }) => {
-    // Blindly route the encrypted payload to the target
-    // The payload is AES room key encrypted with the target's public ECDH key
-    console.log(`[CRYPTO] Master routing secure Room Key to ${targetSocketId}`);
     socket.to(targetSocketId).emit('receive_room_key', encryptedRoomKeyPayload);
+  });
+
+  // Healing request for desynced Peers
+  socket.on('request_room_key', (masterId) => {
+    // Notify the current master that this user respectfully desperately needs a key drop!
+    socket.to(masterId).emit('user_joined', {
+      socketId: socket.id,
+      ...users.get(socket.id)
+    });
   });
 
   // Step 3: General Message Routing (Payload is pure ciphertext now)
@@ -63,6 +78,13 @@ io.on('connection', (socket) => {
     console.log(`[SECURE_MSG] Routing: ${payload.ciphertext.substring(0, 15)}... from ${user.username}`);
 
     io.emit('chat_message', payload);
+  });
+
+  // Step 4: Typing Indicators
+  socket.on('typing', (isTyping) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    socket.broadcast.emit('user_typing', { username: user.username, isTyping });
   });
 
   socket.on('disconnect', () => {
@@ -82,6 +104,12 @@ io.on('connection', (socket) => {
         io.to(nextMaster.socketId).emit('assign_master');
         console.log(`[LOBBY] Master reassigned to ${nextMaster.username}`);
       }
+
+      // VITAL: Re-emit synchronized room state so nobody loses track of Master!
+      io.emit('room_state', { 
+        users: Array.from(users.values()), 
+        roomId: currentRoomId 
+      });
     }
   });
 });
