@@ -1,29 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { createAvatar } from '@dicebear/core';
-import { bottts } from '@dicebear/collection';
-import { Shuffle, ArrowRight } from 'lucide-react';
+import { notionists } from '@dicebear/collection';
+import { Shuffle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function Onboarding({ onJoin }) {
   const [nickname, setNickname] = useState('');
   const [avatarSvg, setAvatarSvg] = useState('');
+  const [seed, setSeed] = useState('random_bot');
 
   useEffect(() => {
-    generateAvatar(nickname || 'random_bot');
-  }, [nickname]);
-
-  const generateAvatar = (seed) => {
-    const avatar = createAvatar(bottts, {
+    const avatar = createAvatar(notionists, {
       seed: seed,
       size: 128,
-      scale: 90,
-      backgroundColor: ['1e293b', '0f172a', '334155'], // Dark Slate variations
+      backgroundColor: ['ffffff', 'f8fafc', 'f1f5f9'], // light variations
     });
     setAvatarSvg(avatar.toString());
-  };
+  }, [seed]);
 
   const handleRandomize = () => {
-    const randomString = Math.random().toString(36).substring(7);
-    generateAvatar(randomString);
+    setSeed(Math.random().toString(36).substring(7));
   };
 
   const handleSubmit = (e) => {
@@ -35,53 +31,79 @@ export default function Onboarding({ onJoin }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 relative z-10 w-full">
-      <div className="glass-panel w-full max-w-md p-8 rounded-3xl flex flex-col items-center animate-fade-in-up">
-        <h1 className="text-3xl font-extrabold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-          SneakChat
-        </h1>
-        <p className="text-sm dark:text-gray-400 text-gray-500 mb-8 text-center">
-          Secure, offline local network chat.
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="glass-panel w-full max-w-md p-8 rounded-3xl flex flex-col items-center shadow-2xl"
+      >
+        <motion.div
+           initial={{ opacity:0 }}
+           animate={{ opacity:1 }}
+           transition={{ delay: 0.3 }}
+           className="flex items-center gap-3 mb-2"
+        >
+          <ShieldCheck className="text-green-400" size={32} />
+          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
+            Whisper
+          </h1>
+        </motion.div>
+        
+        <p className="text-sm dark:text-gray-400 text-gray-500 mb-8 text-center font-medium">
+          Encrypted LAN Lobby. Zero Internet.
         </p>
 
-        {/* Avatar Preview */}
-        <div className="relative mb-6 group cursor-pointer" onClick={handleRandomize}>
+        {/* Avatar Area */}
+        <motion.div 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="relative mb-8 cursor-pointer group" 
+          onClick={handleRandomize}
+        >
           <div 
-            className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-lg bg-gray-800 transition-transform duration-300 group-hover:scale-105"
+            className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-xl bg-white"
             dangerouslySetInnerHTML={{ __html: avatarSvg }}
           />
+
           <button 
             type="button"
-            className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 text-xs rounded-full shadow-lg hover:bg-blue-500 transition-colors"
-            title="Randomize Avatar"
+            className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-500 transition-colors z-10"
+            title="Randomize"
           >
             <Shuffle size={16} />
           </button>
-        </div>
+        </motion.div>
 
         <form onSubmit={handleSubmit} className="w-full">
           <div className="mb-6">
             <label className="block text-xs font-bold mb-2 uppercase tracking-wider dark:text-gray-300 text-gray-600">
-              Choose Nickname
+              Identity Alias
             </label>
             <input 
               type="text" 
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="e.g. MasterChief"
-              className="glass-input w-full px-4 py-3 rounded-xl text-lg font-medium transition-all"
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setSeed(e.target.value || 'random_bot');
+              }}
+              placeholder="e.g. Cipher"
+              className="glass-input w-full px-4 py-3 rounded-xl text-lg font-medium transition-all shadow-inner"
               autoFocus
               maxLength={20}
             />
           </div>
-          <button 
+          
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit" 
             disabled={nickname.trim().length < 2}
-            className="w-full flex justify-center items-center gap-2 py-4 px-6 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg font-bold rounded-xl shadow-lg transition-all"
+            className="w-full flex justify-center items-center gap-2 py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:grayscale text-white text-lg font-bold rounded-xl shadow-lg transition-all"
           >
-            Enter Lobby <ArrowRight size={20} />
-          </button>
+            Generate Keys & Join <ArrowRight size={20} />
+          </motion.button>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

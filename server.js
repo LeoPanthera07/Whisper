@@ -7,73 +7,82 @@ const qrcode = require('qrcode-terminal');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
-
+const io = new Server(server, { cors: { origin: '*' } });
 const PORT = 2627;
 
-// Serve the static React build
 app.use(express.static(path.join(__dirname, 'client/dist')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
-});
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'client/dist/index.html')));
 
-// In-memory Room State (Sprint 2 / Unencrypted layer)
-// Map of socket.id -> { username, avatarSvg }
+// Map: socket.id -> { username, avatarSvg, publicKey, isMaster }
 const users = new Map();
 
 io.on('connection', (socket) => {
   console.log(`[+] Socket connected: ${socket.id}`);
 
-  // Handshake listener: When a user finishes Onboarding
+  // Step 1: User joins and shares their Public Key
   socket.on('join_room', (userData) => {
-    // Save to our memory map
+    const isFirstUser = users.size === 0;
+    
     users.set(socket.id, {
-      ...userData,
-      socketId: socket.id
+      socketId: socket.id,
+      username: userData.username,
+      avatarSvg: userData.avatarSvg,
+      publicKey: userData.publicKey, // JWT format
+      isMaster: isFirstUser
     });
     
-    console.log(`[LOBBY] ${userData.username} joined.`);
+    console.log(`[LOBBY] ${userData.username} joined. Master: ${isFirstUser}`);
 
-    // Tell the new user about ALL existing users
+    // Tell the user their own state & who else is here
     socket.emit('room_state', Array.from(users.values()));
 
-    // Broadcast to everyone else that a new user joined
+    // Tell others (specifically the Key Master) that a new user appeared
     socket.broadcast.emit('user_joined', {
       socketId: socket.id,
-      ...userData
+      username: userData.username,
+      avatarSvg: userData.avatarSvg,
+      publicKey: userData.publicKey,
     });
   });
 
-  // Chat message listener
-  socket.on('chat_message', (msgContent) => {
+  // Step 2: The Key Master sends the encrypted Symmetric Room Key payload to the New User
+  socket.on('send_room_key', ({ targetSocketId, encryptedRoomKeyPayload }) => {
+    // Blindly route the encrypted payload to the target
+    // The payload is AES room key encrypted with the target's public ECDH key
+    console.log(`[CRYPTO] Master routing secure Room Key to ${targetSocketId}`);
+    socket.to(targetSocketId).emit('receive_room_key', encryptedRoomKeyPayload);
+  });
+
+  // Step 3: General Message Routing (Payload is pure ciphertext now)
+  socket.on('chat_message', (payload) => {
+    // payload: { id, senderId, username, avatarSvg, iv, ciphertext, timestamp }
     const user = users.get(socket.id);
-    if (!user) return; // Ignore if user hasn't joined formally
+    if (!user) return;
+    
+    // Log ciphertext blob snippet to terminal to prove E2EE works
+    console.log(`[SECURE_MSG] Routing: ${payload.ciphertext.substring(0, 15)}... from ${user.username}`);
 
-    const messagePayload = {
-      id: Date.now() + Math.random().toString(36).substr(2, 9),
-      senderId: socket.id,
-      username: user.username,
-      avatarSvg: user.avatarSvg,
-      text: msgContent,
-      timestamp: Date.now()
-    };
-
-    // Broadcast message back to ALL clients (including sender)
-    io.emit('chat_message', messagePayload);
+    io.emit('chat_message', payload);
   });
 
   socket.on('disconnect', () => {
     if (users.has(socket.id)) {
       const user = users.get(socket.id);
       console.log(`[-] ${user.username} left.`);
-      
-      // Notify lobby
       socket.broadcast.emit('user_left', socket.id);
       users.delete(socket.id);
+
+      // Reassign Key Master if the master left and there are still users!
+      // This solves the Open Question you approved: "keep session, just continue"
+      if (user.isMaster && users.size > 0) {
+        const nextMasterKey = Array.from(users.keys())[0];
+        const nextMaster = users.get(nextMasterKey);
+        nextMaster.isMaster = true;
+        
+        io.to(nextMaster.socketId).emit('assign_master');
+        console.log(`[LOBBY] Master reassigned to ${nextMaster.username}`);
+      }
     }
-    console.log(`[-] Socket disconnected: ${socket.id}`);
   });
 });
 
@@ -92,11 +101,8 @@ const serverUrl = `http://${hostIP}:${PORT}`;
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n=================================================`);
-  console.log(`🚀 Offline Chat Server is ACTIVE!`);
+  console.log(`🚀 Offline Chat Server is SECURELY ACTIVE!`);
   console.log(`=================================================`);
-  console.log(`\n🔗 Host Localhost:   http://localhost:${PORT}`);
   console.log(`🔗 Network Link:     ${serverUrl}\n`);
-  
-  console.log(`📱 Scan this QR Code from other devices:\n`);
   qrcode.generate(serverUrl, { small: true });
 });

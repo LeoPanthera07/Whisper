@@ -7,6 +7,9 @@ export default {
   darkMode: 'class', // Allows easy toggle
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+      },
       colors: {
         // Custom glassmorphism variables
         glass: 'rgba(255, 255, 255, 0.15)',
