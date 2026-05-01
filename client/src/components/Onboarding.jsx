@@ -55,7 +55,7 @@ export default function Onboarding({ onJoin, isDarkMode, toggleTheme }) {
            className="flex items-center gap-3 mb-2"
         >
           <ShieldCheck className="text-green-400" size={32} />
-          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
             Whisper
           </h1>
         </motion.div>
@@ -87,7 +87,7 @@ export default function Onboarding({ onJoin, isDarkMode, toggleTheme }) {
 
         <form onSubmit={handleSubmit} className="w-full">
           <div className="mb-6">
-            <label className="block text-xs font-bold mb-2 uppercase tracking-wider dark:text-gray-300 text-gray-600">
+            <label className="block text-xs font-semibold mb-2 uppercase tracking-wider dark:text-gray-300 text-gray-600">
               Identity Alias
             </label>
             <input 
@@ -109,7 +109,7 @@ export default function Onboarding({ onJoin, isDarkMode, toggleTheme }) {
             whileTap={{ scale: 0.98 }}
             type="submit" 
             disabled={nickname.trim().length < 2}
-            className="w-full flex justify-center items-center gap-2 py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:grayscale text-white text-lg font-bold rounded-xl shadow-lg transition-all"
+            className="w-full flex justify-center items-center gap-2 py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:grayscale text-white text-lg font-semibold rounded-xl shadow-lg transition-all"
           >
             Generate Keys & Join <ArrowRight size={20} />
           </motion.button>

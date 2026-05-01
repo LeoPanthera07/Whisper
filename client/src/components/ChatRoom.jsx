@@ -285,8 +285,8 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
             dangerouslySetInnerHTML={{ __html: currentUser.avatarSvg }} 
           />
           <div>
-            <h2 className="font-extrabold text-lg dark:text-white tracking-tight">{currentUser.username}</h2>
-            <div className="flex items-center gap-1 text-[11px] text-emerald-500 font-bold uppercase tracking-wider">
+            <h2 className="font-bold text-lg dark:text-white tracking-tight">{currentUser.username}</h2>
+            <div className="flex items-center gap-1 text-[11px] text-emerald-500 font-semibold uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Online • {onlineUsers.length} in room
             </div>
@@ -297,7 +297,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
           <button onClick={toggleTheme} className="p-2.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors backdrop-blur-md">
             {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-slate-700" />}
           </button>
-          <div className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide border shadow-sm transition-all duration-500 ${
+          <div className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wide border shadow-sm transition-all duration-500 ${
             isSecure 
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
               : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30'
@@ -332,7 +332,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
             {/* Date separator */}
             <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 px-2 py-1 rounded-full bg-gray-100 dark:bg-slate-800/80 border border-gray-200 dark:border-white/5">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 px-2 py-1 rounded-full bg-gray-100 dark:bg-slate-800/80 border border-gray-200 dark:border-white/5">
                 {group.label}
               </span>
               <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
@@ -370,7 +370,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                         {emojiOnly ? (
                           <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                             {!isMe && (
-                              <p className="text-[11px] font-extrabold mb-1 px-1 tracking-wide"
+                              <p className="text-[11px] font-bold mb-1 px-1 tracking-wide"
                                 style={{ color: stringToColor(msg.username) }}>
                                 {msg.username}
                               </p>
@@ -378,14 +378,14 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                             <div
                               className="leading-none select-none"
                               style={{
-                                fontSize: 64,
-                                fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
+                              fontSize: 44,
+                                fontFamily: 'Poppins, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
                                 lineHeight: 1.1,
                               }}
                             >
                               {msg.text}
                             </div>
-                            <span className="text-[10px] font-semibold tabular-nums mt-1 px-1 text-gray-400 dark:text-gray-500">
+                            <span className="text-[10px] font-medium tabular-nums mt-1 px-1 text-gray-400 dark:text-gray-500">
                               {formatTime(msg.timestamp)}
                             </span>
                           </div>
@@ -401,7 +401,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                           {/* Sender name — only for others' messages */}
                           {!isMe && (
                             <p
-                              className="text-[11px] font-extrabold mb-1.5 tracking-wide"
+                              className="text-[11px] font-bold mb-1.5 tracking-wide"
                               style={{ color: stringToColor(msg.username) }}
                             >
                               {msg.username}
@@ -415,7 +415,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                                 ? 'border-white/40 bg-white/10'
                                 : 'border-indigo-400/60 bg-gray-100/70 dark:bg-white/5'
                             } py-1 pr-2 rounded-r-lg`}>
-                              <p className={`text-[10px] font-bold mb-0.5 ${
+                              <p className={`text-[10px] font-semibold mb-0.5 ${
                                 isMe ? 'text-white/70' : ''
                               }`}
                                 style={!isMe ? { color: stringToColor(msg.replyTo.username) } : {}}
@@ -425,7 +425,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                               <p className={`text-[12px] truncate ${
                                 isMe ? 'text-white/60' : 'text-gray-500 dark:text-gray-400'
                               }`}
-                                style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
+                                style={{ fontFamily: 'Poppins, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
                               >
                                 {msg.replyTo.text}
                               </p>
@@ -434,15 +434,15 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
 
                           {/* Message text */}
                           <p
-                            className="break-words leading-relaxed text-[15px] font-medium"
-                            style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Inter, ui-sans-serif, sans-serif' }}
+                            className="break-words leading-relaxed text-[15px] font-normal"
+                            style={{ fontFamily: 'Poppins, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
                           >
                             {msg.text}
                           </p>
 
                           {/* Timestamp inside bubble */}
                           <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMe ? 'opacity-60' : 'opacity-40'}`}>
-                            <span className="text-[10px] font-semibold tabular-nums">
+                            <span className="text-[10px] font-medium tabular-nums">
                               {formatTime(msg.timestamp)}
                             </span>
                             {isMe && (
