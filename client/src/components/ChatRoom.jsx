@@ -273,7 +273,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
     <motion.div 
        initial={{ opacity: 0 }} 
        animate={{ opacity: 1 }} 
-       className="fixed inset-0 flex flex-col w-[100dvw] h-[100dvh] z-[999] bg-gray-50 dark:bg-slate-900 border-none m-0 p-0 font-sans"
+       className="fixed inset-0 flex flex-col w-[100dvw] h-[100dvh] z-[999] bg-gray-50 dark:bg-slate-900 border-none m-0 p-0"
     >
       {/* Header */}
       <header className="h-20 w-full px-4 sm:px-8 flex items-center justify-between border-b border-gray-200/50 dark:border-white/10 shadow-sm flex-shrink-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
@@ -341,6 +341,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
             <div className="space-y-3">
               {group.messages.map((msg) => {
                 const isMe = msg.senderId === socket.id;
+                const emojiOnly = isSingleEmojiMessage(msg.text);
 
                 return (
                   <motion.div
@@ -348,26 +349,48 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ type: 'spring', stiffness: 420, damping: 28 }}
                     key={msg.id}
-                    className={`group/msg flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
+                    className={`group flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`max-w-[82%] md:max-w-[65%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
 
                       {/* Row: bubble + reply button */}
                       <div className={`flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
 
-                        {/* Reply button — appears on hover */}
-                        <motion.button
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          whileHover={{ scale: 1.1 }}
+                        {/* Reply button — plain button, CSS group-hover (no framer inline opacity override) */}
+                        <button
                           onClick={() => setReplyTo({ id: msg.id, username: msg.username, text: msg.text })}
-                          className="opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 p-1.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 flex-shrink-0 mb-2"
+                          className="opacity-0 group-hover:opacity-100 transition-all duration-150 p-1.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:scale-110 flex-shrink-0 mb-2 cursor-pointer"
                           title="Reply"
                           type="button"
                         >
                           <CornerDownLeft size={14} />
-                        </motion.button>
+                        </button>
 
-                        {/* Chat Bubble */}
+                        {/* ── EMOJI-ONLY: large floating emoji, no bubble ── */}
+                        {emojiOnly ? (
+                          <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                            {!isMe && (
+                              <p className="text-[11px] font-extrabold mb-1 px-1 tracking-wide"
+                                style={{ color: stringToColor(msg.username) }}>
+                                {msg.username}
+                              </p>
+                            )}
+                            <div
+                              className="leading-none select-none"
+                              style={{
+                                fontSize: 64,
+                                fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
+                                lineHeight: 1.1,
+                              }}
+                            >
+                              {msg.text}
+                            </div>
+                            <span className="text-[10px] font-semibold tabular-nums mt-1 px-1 text-gray-400 dark:text-gray-500">
+                              {formatTime(msg.timestamp)}
+                            </span>
+                          </div>
+                        ) : (
+                        /* ── NORMAL BUBBLE ── */
                         <div
                           className={`relative px-4 pt-3 pb-2.5 rounded-[22px] shadow-md backdrop-blur-sm ${
                             isMe
@@ -385,7 +408,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                             </p>
                           )}
 
-                          {/* Reply Quote — if this message is replying to another */}
+                          {/* Reply Quote */}
                           {msg.replyTo && (
                             <div className={`mb-2 pl-2.5 border-l-2 rounded-sm ${
                               isMe
@@ -412,12 +435,12 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                           {/* Message text */}
                           <p
                             className="break-words leading-relaxed text-[15px] font-medium"
-                            style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", ui-sans-serif, system-ui, sans-serif' }}
+                            style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Inter, ui-sans-serif, sans-serif' }}
                           >
                             {msg.text}
                           </p>
 
-                          {/* Timestamp inside bubble, bottom-right */}
+                          {/* Timestamp inside bubble */}
                           <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMe ? 'opacity-60' : 'opacity-40'}`}>
                             <span className="text-[10px] font-semibold tabular-nums">
                               {formatTime(msg.timestamp)}
@@ -429,6 +452,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                             )}
                           </div>
                         </div>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -578,4 +602,24 @@ function stringToColor(str) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   return palette[Math.abs(hash) % palette.length];
+}
+
+// Returns true when the message is only 1–3 emoji characters (no other text)
+// Uses Intl.Segmenter for correct grapheme cluster counting (multi-codepoint emoji)
+function isSingleEmojiMessage(text) {
+  if (!text || text.trim().length === 0) return false;
+  const trimmed = text.trim();
+  // Quick reject: if any ASCII letter/number/punctuation, it's not emoji-only
+  if (/[a-zA-Z0-9.,!?;:'"\-_@#$%^&*()[\]{}|<>/\\]/.test(trimmed)) return false;
+  try {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    const segments = [...segmenter.segment(trimmed)].filter(s => s.segment.trim() !== '');
+    if (segments.length === 0 || segments.length > 3) return false;
+    // Every segment must be emoji-like (non-ASCII, >0 length)
+    const emojiRe = /\p{Extended_Pictographic}/u;
+    return segments.every(s => emojiRe.test(s.segment));
+  } catch {
+    // Fallback for environments without Intl.Segmenter
+    return false;
+  }
 }
