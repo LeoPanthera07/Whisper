@@ -379,7 +379,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                               className="leading-none select-none"
                               style={{
                               fontSize: 44,
-                                fontFamily: 'Poppins, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
+                                fontFamily: 'Inter, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif',
                                 lineHeight: 1.1,
                               }}
                             >
@@ -425,7 +425,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                               <p className={`text-[12px] truncate ${
                                 isMe ? 'text-white/60' : 'text-gray-500 dark:text-gray-400'
                               }`}
-                                style={{ fontFamily: 'Poppins, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
+                                style={{ fontFamily: 'Inter, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
                               >
                                 {msg.replyTo.text}
                               </p>
@@ -435,7 +435,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
                           {/* Message text */}
                           <p
                             className="break-words leading-relaxed text-[15px] font-normal"
-                            style={{ fontFamily: 'Poppins, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
+                            style={{ fontFamily: 'Inter, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
                           >
                             {msg.text}
                           </p>
