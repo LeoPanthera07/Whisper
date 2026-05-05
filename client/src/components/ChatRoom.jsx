@@ -280,14 +280,14 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
         <div className="flex items-center gap-4">
           <motion.div 
             whileHover={{ scale: 1.1 }}
-            className="w-12 h-12 rounded-full border-2 border-emerald-500 bg-white shadow-[0_0_15px_rgba(16,185,129,0.3)] flex-shrink-0 flex justify-center items-center [&>svg]:w-full [&>svg]:h-full"
+            className="w-12 h-12 rounded-full border-2 border-violet-500 bg-white shadow-[0_0_15px_rgba(139,92,246,0.35)] flex-shrink-0 flex justify-center items-center [&>svg]:w-full [&>svg]:h-full"
             style={{ clipPath: 'circle(50% at 50% 50%)' }}
             dangerouslySetInnerHTML={{ __html: currentUser.avatarSvg }} 
           />
           <div>
             <h2 className="font-bold text-lg dark:text-white tracking-tight">{currentUser.username}</h2>
-            <div className="flex items-center gap-1 text-[11px] text-emerald-500 font-semibold uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <div className="flex items-center gap-1 text-[11px] text-violet-500 font-semibold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
               Online • {onlineUsers.length} in room
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
           </button>
           <div className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wide border shadow-sm transition-all duration-500 ${
             isSecure 
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+              ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30 shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
               : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/30'
           }`}>
             {isSecure ? <ShieldCheck size={16} /> : <Key size={16} className="animate-pulse" />} 
@@ -358,7 +358,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
 
                         {/* Reply button — plain button, CSS group-hover (no framer inline opacity override) */}
                         <button
-                          onClick={() => setReplyTo({ id: msg.id, username: msg.username, text: msg.text })}
+                          onClick={() => { setReplyTo({ id: msg.id, username: msg.username, text: msg.text }); setTimeout(() => inputRef.current?.focus(), 0); }}
                           className="opacity-0 group-hover:opacity-100 transition-all duration-150 p-1.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:scale-110 flex-shrink-0 mb-2 cursor-pointer"
                           title="Reply"
                           type="button"
@@ -487,31 +487,36 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
       <AnimatePresence>
         {replyTo && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.18 }}
-            className="flex-shrink-0 w-full px-4 sm:px-6 py-2 bg-white/90 dark:bg-slate-800/90 border-t border-gray-200 dark:border-white/10 backdrop-blur-xl z-30"
+            initial={{ opacity: 0, y: 10, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: 6, height: 0 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 36 }}
+            className="flex-shrink-0 w-full overflow-hidden"
           >
-            <div className="max-w-5xl mx-auto flex items-center gap-3">
-              <div className="w-0.5 h-8 rounded-full bg-indigo-500 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold" style={{ color: stringToColor(replyTo.username) }}>
-                  {replyTo.username}
-                </p>
-                <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate"
-                  style={{ fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}
-                >
-                  {replyTo.text}
-                </p>
+            <div className="w-full px-4 sm:px-6 py-2.5 bg-indigo-50/80 dark:bg-indigo-950/40 border-t border-indigo-200/60 dark:border-indigo-800/40 backdrop-blur-xl">
+              <div className="max-w-5xl mx-auto flex items-center gap-3">
+                {/* Accent bar */}
+                <div className="w-[3px] h-9 rounded-full flex-shrink-0" style={{ background: stringToColor(replyTo.username) }} />
+                {/* Reply icon + content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <CornerDownLeft size={10} className="text-indigo-400 dark:text-indigo-500 flex-shrink-0" />
+                    <p className="text-[11px] font-semibold tracking-wide"
+                      style={{ color: stringToColor(replyTo.username) }}>
+                      {replyTo.username}
+                    </p>
+                  </div>
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate"
+                    style={{ fontFamily: 'Inter,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif' }}>
+                    {replyTo.text}
+                  </p>
+                </div>
+                {/* Dismiss */}
+                <button type="button" onClick={() => setReplyTo(null)}
+                  className="p-1.5 rounded-full bg-gray-200/70 dark:bg-white/10 hover:bg-gray-300/80 dark:hover:bg-white/20 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-all">
+                  <X size={13} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-colors"
-              >
-                <X size={14} />
-              </button>
             </div>
           </motion.div>
         )}
@@ -551,7 +556,7 @@ export default function ChatRoom({ socket, currentUser, myKeys, isDarkMode, togg
             disabled={!isSecure}
             placeholder={replyTo ? `Replying to ${replyTo.username}...` : isSecure ? 'Type your encrypted message...' : 'Establishing Secure Handshake...'}
             className="flex-1 glass-input backdrop-blur-2xl bg-white/70 dark:bg-black/40 border border-gray-200 dark:border-gray-700/50 rounded-full px-6 py-4 pr-16 dark:text-white text-gray-900 placeholder-gray-500 dark:placeholder-gray-400 transition-all font-medium focus:ring-2 focus:ring-indigo-500/50 shadow-inner"
-            style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", ui-sans-serif, system-ui, sans-serif' }}
+            style={{ fontFamily: 'Inter, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
             autoComplete="off"
             autoFocus
           />

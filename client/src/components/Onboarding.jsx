@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createAvatar } from '@dicebear/core';
 import { notionists } from '@dicebear/collection';
-import { Shuffle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Shuffle, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Onboarding({ onJoin, isDarkMode, toggleTheme }) {
@@ -54,8 +54,7 @@ export default function Onboarding({ onJoin, isDarkMode, toggleTheme }) {
            transition={{ delay: 0.3 }}
            className="flex items-center gap-3 mb-2"
         >
-          <ShieldCheck className="text-green-400" size={32} />
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 pb-1">
+          <h1 className="text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400 pb-1">
             Whisper
           </h1>
         </motion.div>
