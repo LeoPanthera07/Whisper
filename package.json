@@ -6,10 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build:exe": "pkg server.js --target node18-win-x64 --output dist-exe/Whisper.exe --compress GZip"
+    "build:exe": "npm run build:ui && node embed-assets.js && npx pkg server.js --target node18-win-x64 --output Whisper.exe --compress GZip",
+    "build:ui": "cd client && npm run build && cd .."
   },
   "pkg": {
     "assets": [
+      "embedded-assets.js",
       "node_modules/qrcode-terminal/**/*"
     ],
     "targets": [
