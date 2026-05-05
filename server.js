@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const os = require('os');
 const path = require('path');
+const { exec } = require('child_process');
 const qrcode = require('qrcode-terminal');
 
 const app = express();
@@ -10,8 +11,13 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 const PORT = 2627;
 
-app.use(express.static(path.join(__dirname, 'client/dist')));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'client/dist/index.html')));
+// Resolve static path correctly whether running as raw node or pkg executable
+const STATIC_DIR = process.pkg
+  ? path.join(path.dirname(process.execPath), 'client', 'dist')
+  : path.join(__dirname, 'client', 'dist');
+
+app.use(express.static(STATIC_DIR));
+app.get('*', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
 
 // Map: socket.id -> { username, avatarSvg, publicKey, isMaster }
 const users = new Map();
@@ -129,8 +135,24 @@ const serverUrl = `http://${hostIP}:${PORT}`;
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n=================================================`);
-  console.log(`🚀 Offline Chat Server is SECURELY ACTIVE!`);
+  console.log(`🚀 Whisper — Secure Offline Chat is LIVE!`);
   console.log(`=================================================`);
-  console.log(`🔗 Network Link:     ${serverUrl}\n`);
+  console.log(`🖥️  Local:          http://localhost:${PORT}`);
+  console.log(`🔗 Network Link:   ${serverUrl}`);
+  console.log(`\nShare this link or scan the QR code below:\n`);
   qrcode.generate(serverUrl, { small: true });
+  console.log(`\nPress Ctrl+C to stop the server.\n`);
+
+  // Auto-open browser after 800ms (gives server a moment to fully bind)
+  setTimeout(() => {
+    const url = `http://localhost:${PORT}`;
+    const cmd = process.platform === 'win32'
+      ? `start "" "${url}"`
+      : process.platform === 'darwin'
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
+    exec(cmd, (err) => {
+      if (err) console.log(`[INFO] Could not auto-open browser. Navigate to: ${url}`);
+    });
+  }, 800);
 });

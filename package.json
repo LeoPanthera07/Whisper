@@ -5,7 +5,16 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build:exe": "pkg server.js --target node18-win-x64 --output dist-exe/Whisper.exe --compress GZip"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/qrcode-terminal/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
   },
   "dependencies": {
     "express": "^4.19.2",
